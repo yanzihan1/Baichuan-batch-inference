@@ -587,22 +587,27 @@ class BaichuanForCausalLM(BaichuanPreTrainedModel):
     def chat(self, tokenizer, messages: List[dict], messages2: List[dict], stream=False,
              generation_config: Optional[GenerationConfig]=None):
         generation_config = generation_config or self.generation_config
+        generation_config.no_repeat_ngram_size=3
+        # print(generation_config)
         input_ids1 = self._build_chat_input(tokenizer, messages, generation_config.max_new_tokens)
         input_ids2 = self._build_chat_input(tokenizer, messages2, generation_config.max_new_tokens)
         #==========手动实现padding====================
+        prompt_padding_left=[]
+
         if len(input_ids1)==len(input_ids2):
             pass
         elif len(input_ids1)>len(input_ids2):
             diff=len(input_ids1)-len(input_ids2)
             for _ in range(diff):
-                input_ids2.append(0)
+                prompt_padding_left.append(0)
+            input_ids2=prompt_padding_left+input_ids2
 
         else:
             diff=len(input_ids2)-len(input_ids1)
             for _ in range(diff):
-                input_ids1.append(0)
+                prompt_padding_left.append(0)
+            input_ids1=prompt_padding_left+input_ids1
 
-        # print([input_ids1,input_ids2])
         #=========手动padding 结束======================
 
         input_ids = torch.tensor([input_ids1,input_ids2]).to(self.device)
@@ -623,7 +628,6 @@ class BaichuanForCausalLM(BaichuanPreTrainedModel):
         else:
             self.__class__.generate = PreTrainedModel.generate  # disable stream
             outputs = self.generate(input_ids, generation_config=generation_config)
-
             response1 = tokenizer.decode(outputs[0][len(input_ids[0]):], skip_special_tokens=True)
             response2 = tokenizer.decode(outputs[1][len(input_ids[0]):], skip_special_tokens=True)
 
